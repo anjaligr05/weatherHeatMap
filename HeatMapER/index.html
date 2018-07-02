@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <title>Heatmap for Alexa Weather Error Report</title>
+    <style>
+      html { height: 100% }
+      body { height: 100%; margin: 0; padding: 0; font-family:sans-serif; }
+      #map-canvas { height: 100% }
+      #responseInfo {position:absolute; background:white; font-size:16px; padding:20px; bottom:30px; width:300px; line-height:150%; border:1px solid rgba(0,0,0,.2);}
+      #floating-panel {
+        position: absolute;
+        top: 10px;
+	left: 40%;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: 'Roboto','sans-serif';
+        line-height: 30px;
+        padding-left: 10px;
+      }
+      #floating-panel {
+        background-color: #fff;
+        border: 1px solid #999;
+        left: 40%;
+        padding: 5px;
+        position: absolute;
+        top: 10px;
+        z-index: 5;
+      }
+    </style>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBQs-yv3cNRz4v1LxZfAKylNZGrj3fq_Ok&callback=initMap"></script>
+    <script src="/build/heatmap.js"></script>
+    <script src="/plugins/gmaps-heatmap/gmaps-heatmap.js"></script>
+  </head>
+  <body>
+    <div id="floating-panel">
+      <button onclick="getAllResponses()">All Responses</button>
+      <button onclick="getWrongResponses()">Wrong Responses</button> 
+      <button onclick="playTenHistory()">Play 10 Days History</button>
+    </div>
+    <div id="map-canvas"></div>
+    <div id="responseInfo">
+    </div> 
+    <script>
+        // map center : Salina,KS 
+        var myLatlng = new google.maps.LatLng(38.8402, -97.6114);
+        // map options,
+        var myOptions = {
+          zoom: 5,
+          center: myLatlng
+        };
+        // standard map
+        map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
+        // heatmap layer
+        heatmap = new HeatmapOverlay(map, 
+          {
+            // radius should be small ONLY if scaleRadius is true (or small radius is intended)
+            "radius": 0.1,
+            "maxOpacity": 0.7, 
+	    "minOpacity": 0,
+	    "blur":0.5,
+            // scales the radius based on map zoom
+            "scaleRadius": true, 
+            // if set to false the heatmap uses the global maximum for colorization
+            // if activated: uses the data maximum within the current map boundaries 
+            //   (there will always be a red spot with useLocalExtremas true)
+            "useLocalExtrema": true,
+            // which field name in your data represents the latitude - default "lat"
+            latField: 'lat',
+            // which field name in your data represents the longitude - default "lng"
+            lngField: 'lng',
+            // which field name in your data represents the data value - default "value"
+            valueField: 'count'
+          }
+        );
+
+	var refreshID = {};
+
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.onreadystatechange = function() {
+          if (this.readyState == 4 && this.status == 200) {
+	    var userData = JSON.parse(this.responseText);
+            var heatData = [];
+            for (var j = 0; j < userData.length; j++) {
+	      var item = {
+		lat: userData[j].latitude,
+		lng: userData[j].longitude,
+		count: 1
+	      };
+              heatData.push(item);
+            }
+
+            var testData = {
+              max: 3,
+              data: [] 
+            };
+            testData.data = heatData;
+	    document.getElementById("responseInfo").innerHTML = "All Responses - " + (heatData.length).toString() + " Utterances";
+            heatmap.setData(testData);
+          }
+        };
+        xmlhttp.open("GET", "outputService.txt", true);
+        xmlhttp.send(); 
+
+        function getAllResponses() {
+	  //document.getElementById("responseInfo").innerHTML = "All Responses";
+	  clearInterval(refreshID);
+          var xmlhttp = new XMLHttpRequest();
+          xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+              var userData = JSON.parse(this.responseText);
+              var heatData = [];
+              for (var j = 0; j < userData.length; j++) {
+                var item = {
+          	  lat: userData[j].latitude,
+          	  lng: userData[j].longitude,
+          	  count: 1
+                };
+                heatData.push(item);
+              }
+              var testData = {
+                max: 3,
+                data: [] 
+              };
+              testData.data = heatData;
+          
+	      document.getElementById("responseInfo").innerHTML = "All Responses - " + (heatData.length).toString() + " Utterances";
+              heatmap.setData(testData);
+            }
+          };
+          xmlhttp.open("GET", "outputService.txt", true);
+          xmlhttp.send(); 
+	}
+
+        function getWrongResponses() {
+	  //document.getElementById("responseInfo").innerHTML = "Wrong Responses";
+	  clearInterval(refreshID);
+          var xmlhttp = new XMLHttpRequest();
+          xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+              var userData = JSON.parse(this.responseText);
+              var heatData = [];
+              for (var j = 0; j < userData.length; j++) {
+                var item = {
+                  lat: userData[j].lat,
+                  lng: userData[j].lng,
+                  count: 1
+                };
+                heatData.push(item);
+              }
+              var testData = {
+                max: 3,
+                data: [] 
+              };
+              testData.data = heatData;
+          
+	      document.getElementById("responseInfo").innerHTML = "Wrong Responses - " + (heatData.length).toString() + " Utterances";
+              heatmap.setData(testData);
+            }
+          };
+          xmlhttp.open("GET", "badlocations.txt", true);
+          xmlhttp.send(); 
+	}
+
+        function playTenHistory() {
+	  var intervalCounter = 0;
+          //iterate
+	  refreshID = setInterval(function () {
+	     //iterates 10 times for each day
+	     if (intervalCounter == 10){
+	       intervalCounter = 0;
+             } else {
+               intervalCounter++;
+	     }
+          var xmlhttp = new XMLHttpRequest();
+          xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+              var userData = JSON.parse(this.responseText);
+              var heatData = [];
+	      var totalNumber = intervalCounter * 6000 + 6000;
+	      if (totalNumber > userData.length) totalNumber = userData.length;
+              for (var j = intervalCounter * 6000; j < totalNumber; j++) {
+                var item = {
+                  lat: userData[j].latitude,
+                  lng: userData[j].longitude,
+                  count: 1
+                };
+                heatData.push(item);
+              }
+              var testData = {
+                max: 3,
+                data: [] 
+              };
+              testData.data = heatData;
+          
+              heatmap.setData(testData);
+            }
+          };
+          xmlhttp.open("GET", "outputService.txt", true);
+          xmlhttp.send();
+	     document.getElementById("responseInfo").innerHTML = "Day " + (intervalCounter).toString() + " Responses";
+	  }, 1000);
+	}
+</script>
+  </body>
+</html>
